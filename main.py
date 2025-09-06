@@ -1,11 +1,15 @@
 """Applies pretrained (UK) DGMR model on real time French radar data."""
 
+# Uncomment the following line to disable the oneDNN optimisation that slightly changes 
+# numerical results due to floating-point round-off errors from different computation order
+# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 import datetime as dt
 
 import numpy as np
 import tensorflow as tf
 
-from dgmr.data import get_input_array, get_list_files
+from dgmr.data import get_input_array, get_files_list
 from dgmr.model import load_model, predict
 from dgmr.plot import plot_gif_forecast
 from dgmr.settings import INPUT_IMG_SIZE, PLOT_PATH, RADAR_IMG_SIZE
@@ -25,16 +29,17 @@ def make_forecast(x_array: np.ndarray) -> np.ndarray:
 
     model = load_model(INPUT_IMG_SIZE)
 
+    ensemble_members = 1
     print("Forecast on North-West...")
-    output_nw = predict(tensor_nw, model)[0]
+    output_nw = predict(tensor_nw, model, ensemble_members) # return value's shape type = (ensemble_members, timesteps, x_size, y_size)
     print("Forecast on South-East...")
-    output_se = predict(tensor_se, model)[0]
+    output_se = predict(tensor_se, model, ensemble_members)
 
-    forecast = np.ones((output_nw.shape[0], RADAR_IMG_SIZE[0], RADAR_IMG_SIZE[1]))
-    forecast[:, -size_y:, -size_x:] = output_se
+    forecast = np.ones((ensemble_members, output_nw.shape[1], RADAR_IMG_SIZE[0], RADAR_IMG_SIZE[1]))
+    forecast[:, :, -size_y:, -size_x:] = output_se
     # We assemble the outputs where they overlap enough to avoir disontinuities
     # Hence the 256 offset, to be well inside the receptive field of the model
-    forecast[:, :size_y, : size_x - 256] = output_nw[:, :, :-256]
+    forecast[:, :, :size_y, : size_x - 256] = output_nw[:, :, :, :-256]
     return forecast
 
 
@@ -52,17 +57,19 @@ if __name__ == "__main__":
 
     print(f"---> Making DGMR forecast for date {run_date}")
 
-    file_paths = get_list_files(run_date)
+    file_paths = get_files_list(run_date)
     if not all([f.exists() for f in file_paths]):
-        raise FileNotFoundError("Some radar files are not available")
+        raise FileNotFoundError(f"Some radar files are not available, could not find {file_paths}")
 
     x_array, mask = get_input_array(file_paths)
 
     forecast = make_forecast(x_array)
 
+    forecast = forecast.mean(axis=0)
+
     # Postprocessing : put NaN outside of radar field
     mask = np.tile(mask, (forecast.shape[0], 1, 1))
     forecast = np.where(mask == 1, np.nan, forecast)
 
-    dest_path = PLOT_PATH / run_date.strftime("%Y-%m-%d_%Hh%M.gif")
+    dest_path = PLOT_PATH / 'output.gif'
     plot_gif_forecast(forecast, run_date, dest_path)
