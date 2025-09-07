@@ -40,6 +40,21 @@ micromamba create -f environment.yml
 micromamba activate dgmr
 ```
 
+With venv:
+
+```bash
+python -m venv dgmr_env
+```
+
+```bash
+Windows: dgmr_env\Scripts\activate.bat
+linux: dgmr_env/bin/activate
+```
+
+```bash
+pip install -r requirements.txt
+```
+
 ### Create the API Key on Météo-France's Portal
 
 If you don't already have an account on the [Météo-France Public Data portal](https://portail-api.meteofrance.fr/web/en/), please create one.
@@ -70,6 +85,10 @@ If METEO_FRANCE_DATA_PATH is empty, downloaded data will be saved in `./data`.
 
 If DGMR_PLOT_PATH is empty, forecast GIFs will be saved in `./plot`.
 
+If you download the data in a different way than with the script and have a different file date formatting, you could use the RADAR_FILE_DATE_FORMAT to specify the date formatting.<br>
+For exemple if your file has this name : T_IPRN20_C_LFPW_19700101123000.h5.<br>
+The value of RADAR_FILE_DATE_FORMAT must be T_IPRN20_C_LFPW_%Y%m%d%H%M%S.h5.<br>
+If not specified, RADAR_FILE_FORMAT will be %Y_%m_%d_%H_%M.h5 which is the format that the download script provides.
 
 ## Usage
 
